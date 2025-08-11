@@ -2,24 +2,42 @@ const router = require('express').Router();
 const { auth } = require('../middleware/auth');
 const Order = require('../models/Order');
 const Product = require('../models/Product');
+const User = require('../models/User');
 const { jsonOk, jsonErr } = require('../utils/response');
 const { shipOrder, confirmOrder, createOrderAfterPayment } = require('../services/tradeRules');
 const { verifyPiPayment } = require('../services/pi');
 const { ORDER_STATUS } = require('../utils/constants');
 const Review = require('../models/Review');
 
-// 创建订单（支持 Pi 支付验证）
+// 创建订单（支持余额支付和 Pi 支付验证）
 router.post('/', auth, async (req, res) => {
   try {
-    const { productId, paymentId, paymentData } = req.body;
+    const { productId, paymentId, paymentData, paymentMethod = 'pi' } = req.body;
     
     // 检查商品库存
     const product = await Product.findById(productId);
     if (!product || !product.isActive) return res.status(404).json(jsonErr('商品不存在或已下架'));
     if (product.stock <= 0) return res.status(400).json(jsonErr('商品库存不足'));
     
-    // 如果有支付ID，验证支付
-    if (paymentId && paymentData) {
+    // 根据支付方式处理
+    if (paymentMethod === 'balance') {
+      console.log('💰 使用余额支付')
+      
+      // 检查用户余额
+      const user = await User.findById(req.user._id);
+      const availableBalance = Math.max(0, (user.balancePoints || 0) - (user.frozenPoints || 0));
+      
+      if (availableBalance < product.pricePoints) {
+        return res.status(400).json(jsonErr('余额不足，请先充值'));
+      }
+      
+      // 扣除余额
+      user.balancePoints = (user.balancePoints || 0) - product.pricePoints;
+      await user.save();
+      
+      console.log('✅ 余额支付成功，扣除积分:', product.pricePoints)
+      
+    } else if (paymentId && paymentData) {
       console.log('🔍 验证 Pi 支付:', paymentId)
       
       const paymentVerification = await verifyPiPayment(paymentId, paymentData);
@@ -42,7 +60,8 @@ router.post('/', auth, async (req, res) => {
       productId, 
       buyerId: req.user._id,
       paymentId,
-      paymentData
+      paymentData,
+      paymentMethod
     });
     
     // 支付成功后减少库存并计入销量

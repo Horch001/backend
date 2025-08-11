@@ -65,10 +65,10 @@ async function verifyPiAuthData(authData) {
       username = authData.user.username;
       console.log('✅ 从 authData.user.username 获取到用户名:', username);
     }
-    // 5. 如果都没有，记录错误并抛出异常
+    // 5. 如果都没有，使用UID作为用户名（临时方案）
     else {
-      console.error('❌ 无法找到用户名，完整认证数据:', JSON.stringify(authData, null, 2));
-      throw new Error('Pi认证数据中缺少用户名信息');
+      console.warn('⚠️ 无法找到用户名，使用UID作为用户名');
+      username = user.uid;
     }
     
     console.log('✅ Pi 认证数据验证成功:', {
