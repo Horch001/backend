@@ -62,48 +62,71 @@ async function verifyPiAuthData(authData) {
       username = authData.user.username;
       console.log('✅ 从 authData.user.username 获取到用户名:', username);
     }
-    // 5. 如果有accessToken，尝试调用Pi API获取用户名
-    else if (accessToken) {
-      console.log('🔍 尝试通过Pi API获取用户名...');
-      console.log('🔍 使用的accessToken:', accessToken.substring(0, 20) + '...');
-      try {
-        // 根据Pi官方文档，使用正确的API端点
-        const response = await axios.get(`https://api.minepi.com/v2/me`, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`
-          },
-          timeout: 10000
-        });
-        
-        console.log('🔍 Pi API响应状态:', response.status);
-        console.log('🔍 Pi API响应数据:', JSON.stringify(response.data, null, 2));
-        
-        if (response.data && response.data.username) {
-          username = response.data.username;
-          console.log('✅ 通过Pi API获取到用户名:', username);
-        } else {
-          console.warn('⚠️ Pi API返回的数据中没有用户名');
-          console.warn('⚠️ Pi API返回的数据结构:', Object.keys(response.data || {}));
-          
-          // 尝试其他可能的字段
-          if (response.data && response.data.name) {
-            username = response.data.name;
-            console.log('✅ 使用name字段作为用户名:', username);
-          } else if (response.data && response.data.id) {
-            username = `user_${response.data.id}`;
-            console.log('✅ 使用id构造用户名:', username);
-          }
-        }
-      } catch (apiError) {
-        console.error('❌ 调用Pi API获取用户名失败:', apiError.message);
-        if (apiError.response) {
-          console.error('❌ Pi API错误响应:', {
-            status: apiError.response.status,
-            data: apiError.response.data
-          });
-        }
-      }
-    }
+         // 5. 如果有accessToken，尝试调用Pi API获取用户名
+     else if (accessToken) {
+       console.log('🔍 尝试通过Pi API获取用户名...');
+       console.log('🔍 使用的accessToken:', accessToken.substring(0, 20) + '...');
+       try {
+         // 根据Pi官方文档，尝试多个API端点
+         let response = null;
+         let apiData = null;
+         
+         // 尝试 /v2/me 端点
+         try {
+           response = await axios.get(`https://api.minepi.com/v2/me`, {
+             headers: {
+               'Authorization': `Bearer ${accessToken}`
+             },
+             timeout: 10000
+           });
+           apiData = response.data;
+           console.log('✅ /v2/me API调用成功');
+         } catch (meError) {
+           console.warn('⚠️ /v2/me API调用失败，尝试其他端点:', meError.message);
+           
+           // 尝试 /v2/users/{uid} 端点
+           try {
+             response = await axios.get(`https://api.minepi.com/v2/users/${user.uid}`, {
+               headers: {
+                 'Authorization': `Bearer ${accessToken}`
+               },
+               timeout: 10000
+             });
+             apiData = response.data;
+             console.log('✅ /v2/users/{uid} API调用成功');
+           } catch (userError) {
+             console.warn('⚠️ /v2/users/{uid} API调用失败:', userError.message);
+           }
+         }
+         
+         if (apiData) {
+           console.log('🔍 Pi API响应状态:', response.status);
+           console.log('🔍 Pi API响应数据:', JSON.stringify(apiData, null, 2));
+           
+           if (apiData.username) {
+             username = apiData.username;
+             console.log('✅ 通过Pi API获取到用户名:', username);
+           } else if (apiData.name) {
+             username = apiData.name;
+             console.log('✅ 使用name字段作为用户名:', username);
+           } else if (apiData.id) {
+             username = `user_${apiData.id}`;
+             console.log('✅ 使用id构造用户名:', username);
+           } else {
+             console.warn('⚠️ Pi API返回的数据中没有用户名相关字段');
+             console.warn('⚠️ Pi API返回的数据结构:', Object.keys(apiData || {}));
+           }
+         }
+       } catch (apiError) {
+         console.error('❌ 调用Pi API获取用户名失败:', apiError.message);
+         if (apiError.response) {
+           console.error('❌ Pi API错误响应:', {
+             status: apiError.response.status,
+             data: apiError.response.data
+           });
+         }
+       }
+     }
     
     // 6. 如果都没有，使用UID作为用户名（临时方案）
     if (!username) {
