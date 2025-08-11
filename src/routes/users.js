@@ -29,25 +29,21 @@ router.post('/deposit/pay', auth, async (req, res) => {
   try {
     const { paymentId, paymentData } = req.body;
     
-    // 如果有支付数据，验证支付
-    if (paymentId && paymentData) {
-      console.log('🔍 验证押金支付:', paymentId)
-      
-      const { verifyPiPayment } = require('../services/pi');
-      const paymentVerification = await verifyPiPayment(paymentId, paymentData);
-      
-      if (!paymentVerification || !paymentVerification.verified) {
-        return res.status(400).json(jsonErr('支付验证失败'));
-      }
-      
-      console.log('✅ 押金支付验证成功:', paymentVerification)
-    } else {
-      // 没有支付信息，检查是否允许模拟支付
-      if (process.env.MOCK_PAY !== 'true') {
-        return res.status(400).json(jsonErr('需要支付验证'));
-      }
-      console.log('🔄 使用模拟押金支付模式')
+    // 必须有支付数据才能缴纳押金
+    if (!paymentId || !paymentData) {
+      return res.status(400).json(jsonErr('缺少支付信息'));
     }
+    
+    console.log('🔍 验证押金支付:', paymentId)
+    
+    const { verifyPiPayment } = require('../services/pi');
+    const paymentVerification = await verifyPiPayment(paymentId, paymentData);
+    
+    if (!paymentVerification || !paymentVerification.verified) {
+      return res.status(400).json(jsonErr('支付验证失败'));
+    }
+    
+    console.log('✅ 押金支付验证成功:', paymentVerification)
     
     const user = await paySellerDeposit(req.user._id);
     res.json(jsonOk({ user }));
@@ -74,25 +70,21 @@ router.post('/recharge', auth, async (req, res) => {
       return res.status(400).json(jsonErr('无效的充值金额'));
     }
     
-    // 如果有支付数据，验证支付
-    if (paymentId && paymentData) {
-      console.log('🔍 验证充值支付:', paymentId)
-      
-      const { verifyPiPayment } = require('../services/pi');
-      const paymentVerification = await verifyPiPayment(paymentId, paymentData);
-      
-      if (!paymentVerification || !paymentVerification.verified) {
-        return res.status(400).json(jsonErr('支付验证失败'));
-      }
-      
-      console.log('✅ 充值支付验证成功:', paymentVerification)
-    } else {
-      // 没有支付信息，检查是否允许模拟支付
-      if (process.env.MOCK_PAY !== 'true') {
-        return res.status(400).json(jsonErr('需要支付验证'));
-      }
-      console.log('🔄 使用模拟充值支付模式')
+    // 必须有支付数据才能充值
+    if (!paymentId || !paymentData) {
+      return res.status(400).json(jsonErr('缺少支付信息'));
     }
+    
+    console.log('🔍 验证充值支付:', paymentId)
+    
+    const { verifyPiPayment } = require('../services/pi');
+    const paymentVerification = await verifyPiPayment(paymentId, paymentData);
+    
+    if (!paymentVerification || !paymentVerification.verified) {
+      return res.status(400).json(jsonErr('支付验证失败'));
+    }
+    
+    console.log('✅ 充值支付验证成功:', paymentVerification)
     
     // 计算积分数量
     const amountPoints = Math.round(amountPi * POINTS_PER_PI);

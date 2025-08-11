@@ -37,11 +37,18 @@ router.post(
     // 如果有真实的 Pi 认证数据，优先验证
     if (authData && authData.user && authData.user.uid) {
       console.log('🔍 验证真实 Pi 认证数据')
-      profile = await verifyPiAuthData(authData);
-    }
-    
-    // 如果没有真实数据或验证失败，使用 token 验证
-    if (!profile) {
+      try {
+        profile = await verifyPiAuthData(authData);
+        if (!profile) {
+          console.error('❌ Pi 认证数据验证失败');
+          return res.status(400).json(jsonErr('Pi 认证数据验证失败'));
+        }
+        console.log('✅ Pi 认证数据验证成功，用户名:', profile.username);
+      } catch (error) {
+        console.error('❌ Pi 认证数据验证异常:', error.message);
+        return res.status(400).json(jsonErr(`Pi 认证失败: ${error.message}`));
+      }
+    } else {
       console.log('🔍 使用 token 验证')
       profile = await verifyPiLoginToken(piToken);
     }
@@ -50,11 +57,20 @@ router.post(
     
     let user = await User.findOne({ piUserId: profile.piUserId });
     if (!user) {
+      // 创建新用户
       user = await User.create({ 
         piUserId: profile.piUserId, 
         username: profile.username,
         role: 'buyer' // 默认角色为买家
       });
+      console.log('✅ 创建新用户:', { piUserId: profile.piUserId, username: profile.username });
+    } else {
+      // 更新现有用户的用户名（确保使用最新的真实用户名）
+      if (user.username !== profile.username) {
+        user.username = profile.username;
+        await user.save();
+        console.log('✅ 更新用户用户名:', { oldUsername: user.username, newUsername: profile.username });
+      }
     }
     
     const token = signToken(user);

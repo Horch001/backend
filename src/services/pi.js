@@ -38,18 +38,37 @@ async function verifyPiAuthData(authData) {
       uid: user.uid,
       username: user.username,
       currentUser: user.currentUser,
-      user: user
+      user: user,
+      authData: authData
     });
     
-    // 尝试获取用户名，优先使用 currentUser.username
-    let username = user.username;
-    if (!username && user.currentUser && user.currentUser.username) {
-      username = user.currentUser.username;
-    }
+    // 尝试获取用户名，按照优先级顺序
+    let username = null;
     
-    // 如果还是没有用户名，尝试从其他字段获取
-    if (!username && user.currentUser && user.currentUser.uid) {
-      username = user.currentUser.uid;
+    // 1. 直接从 user.username 获取
+    if (user.username) {
+      username = user.username;
+      console.log('✅ 从 user.username 获取到用户名:', username);
+    }
+    // 2. 从 user.currentUser.username 获取
+    else if (user.currentUser && user.currentUser.username) {
+      username = user.currentUser.username;
+      console.log('✅ 从 user.currentUser.username 获取到用户名:', username);
+    }
+    // 3. 从 authData.currentUser.username 获取
+    else if (authData.currentUser && authData.currentUser.username) {
+      username = authData.currentUser.username;
+      console.log('✅ 从 authData.currentUser.username 获取到用户名:', username);
+    }
+    // 4. 从 authData.user.username 获取
+    else if (authData.user && authData.user.username) {
+      username = authData.user.username;
+      console.log('✅ 从 authData.user.username 获取到用户名:', username);
+    }
+    // 5. 如果都没有，记录错误并抛出异常
+    else {
+      console.error('❌ 无法找到用户名，完整认证数据:', JSON.stringify(authData, null, 2));
+      throw new Error('Pi认证数据中缺少用户名信息');
     }
     
     console.log('✅ Pi 认证数据验证成功:', {
@@ -59,7 +78,7 @@ async function verifyPiAuthData(authData) {
 
     return {
       piUserId: user.uid,
-      username: username || `user_${user.uid}`
+      username: username
     };
   } catch (error) {
     console.error('❌ Pi 认证数据验证失败:', error);
@@ -79,20 +98,6 @@ async function verifyPiPayment(paymentId, paymentData) {
     // 在生产环境中，这里应该调用 Pi 平台 API 验证支付
     // https://api.minepi.com/v2/payments/{payment_id}
     
-    if (process.env.MOCK_PAY === 'true') {
-      console.log('🔄 模拟支付验证模式')
-      return {
-        verified: true,
-        paymentId,
-        amount: paymentData?.amount || 0,
-        status: 'completed',
-        transaction: {
-          txid: `mock_tx_${Date.now()}`,
-          verified: true
-        }
-      };
-    }
-
     // 真实支付验证（需要 Pi API Key）
     const apiKey = process.env.PI_API_KEY;
     if (!apiKey) {
@@ -174,14 +179,6 @@ async function createPiPaymentRecord(paymentData) {
       return null;
     }
     
-    if (process.env.MOCK_PAY === 'true') {
-      console.log('🔄 模拟支付记录创建')
-      return {
-        paymentId: `mock_${Date.now()}`,
-        status: 'pending'
-      };
-    }
-
     // 真实支付记录创建（需要 Pi API Key）
     const apiKey = process.env.PI_API_KEY;
     if (!apiKey) {
