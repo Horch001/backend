@@ -183,6 +183,123 @@ router.get('/:id', auth, async (req, res) => {
   } catch (e) { res.status(400).json(jsonErr(e.message)); }
 });
 
+// 批准支付
+router.post('/approve-payment', auth, async (req, res) => {
+  try {
+    const { paymentId, amount, memo, metadata } = req.body;
+    const userId = req.user._id;
+    
+    console.log('🔍 收到支付批准请求:', {
+      paymentId,
+      amount,
+      memo,
+      metadata,
+      userId
+    });
+    
+    // 验证支付数据
+    if (!paymentId || !amount) {
+      return res.status(400).json(jsonErr('缺少支付信息'));
+    }
+    
+    // 这里可以添加额外的验证逻辑
+    // 例如检查用户余额、验证支付金额等
+    
+    console.log('✅ 支付批准成功:', paymentId);
+    res.json(jsonOk({ 
+      approved: true, 
+      paymentId,
+      message: '支付已批准'
+    }));
+  } catch (error) {
+    console.error('❌ 支付批准失败:', error);
+    res.status(500).json(jsonErr('支付批准失败'));
+  }
+});
+
+// 完成支付
+router.post('/complete-payment', auth, async (req, res) => {
+  try {
+    const { paymentId, txid, amount, memo, metadata } = req.body;
+    const userId = req.user._id;
+    
+    console.log('🔍 收到支付完成请求:', {
+      paymentId,
+      txid,
+      amount,
+      memo,
+      metadata,
+      userId
+    });
+    
+    // 验证支付数据
+    if (!paymentId || !txid || !amount) {
+      return res.status(400).json(jsonErr('缺少支付信息'));
+    }
+    
+    // 验证Pi支付
+    const { verifyPiPayment } = require('../services/pi');
+    const paymentVerification = await verifyPiPayment(paymentId, {
+      amount,
+      memo,
+      metadata
+    });
+    
+    if (!paymentVerification || !paymentVerification.verified) {
+      console.error('❌ Pi支付验证失败:', paymentVerification);
+      return res.status(400).json(jsonErr('支付验证失败'));
+    }
+    
+    // 计算积分
+    const points = amount * POINTS_PER_PI;
+    
+    // 更新用户余额
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json(jsonErr('用户不存在'));
+    }
+    
+    user.balancePoints = (user.balancePoints || 0) + points;
+    await user.save();
+    
+    // 记录充值交易
+    await Deposit.create({
+      user: userId,
+      amountPoints: points,
+      status: 'paid',
+      paymentId,
+      txid,
+      metadata: {
+        type: 'recharge',
+        amountPi: amount,
+        memo,
+        ...metadata
+      }
+    });
+    
+    console.log('✅ 支付完成成功:', {
+      paymentId,
+      txid,
+      amount,
+      points,
+      newBalance: user.balancePoints
+    });
+    
+    res.json(jsonOk({
+      completed: true,
+      paymentId,
+      txid,
+      amount,
+      points,
+      newBalance: user.balancePoints,
+      message: '支付完成'
+    }));
+  } catch (error) {
+    console.error('❌ 支付完成失败:', error);
+    res.status(500).json(jsonErr('支付完成失败'));
+  }
+});
+
 module.exports = router;
 
 
