@@ -202,8 +202,7 @@ router.post('/approve-payment', auth, async (req, res) => {
       return res.status(400).json(jsonErr('缺少支付信息'));
     }
     
-    // 根据Pi官方文档，这里不需要调用Pi API
-    // 只需要记录支付状态，让Pi SDK继续处理
+    // 简化处理：直接批准支付，让Pi SDK处理后续流程
     console.log('✅ 支付批准成功:', paymentId);
     res.json(jsonOk({ 
       approved: true, 
