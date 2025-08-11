@@ -47,17 +47,27 @@ async function verifyPiAuthData(authData) {
       username = user.username;
       console.log('✅ 从 user.username 获取到用户名:', username);
     }
-    // 2. 从 user.currentUser.username 获取
+    // 2. 从 user.name 获取
+    else if (user.name) {
+      username = user.name;
+      console.log('✅ 从 user.name 获取到用户名:', username);
+    }
+    // 3. 从 user.displayName 获取
+    else if (user.displayName) {
+      username = user.displayName;
+      console.log('✅ 从 user.displayName 获取到用户名:', username);
+    }
+    // 4. 从 user.currentUser.username 获取
     else if (user.currentUser && user.currentUser.username) {
       username = user.currentUser.username;
       console.log('✅ 从 user.currentUser.username 获取到用户名:', username);
     }
-    // 3. 从 authData.currentUser.username 获取
+    // 5. 从 authData.currentUser.username 获取
     else if (authData.currentUser && authData.currentUser.username) {
       username = authData.currentUser.username;
       console.log('✅ 从 authData.currentUser.username 获取到用户名:', username);
     }
-    // 4. 从 authData.user.username 获取
+    // 6. 从 authData.user.username 获取
     else if (authData.user && authData.user.username) {
       username = authData.user.username;
       console.log('✅ 从 authData.user.username 获取到用户名:', username);
@@ -115,6 +125,12 @@ async function verifyPiAuthData(authData) {
            } else {
              console.warn('⚠️ Pi API返回的数据中没有用户名相关字段');
              console.warn('⚠️ Pi API返回的数据结构:', Object.keys(apiData || {}));
+             
+             // 既然Pi API不提供用户名，我们使用一个更友好的格式
+             // 使用UID的前8位作为用户名
+             const shortUid = user.uid.substring(0, 8);
+             username = `pi_user_${shortUid}`;
+             console.log('✅ 使用友好的UID格式作为用户名:', username);
            }
          }
        } catch (apiError) {
@@ -125,6 +141,11 @@ async function verifyPiAuthData(authData) {
              data: apiError.response.data
            });
          }
+         
+         // API调用失败时，使用友好的UID格式
+         const shortUid = user.uid.substring(0, 8);
+         username = `pi_user_${shortUid}`;
+         console.log('✅ API失败，使用友好的UID格式作为用户名:', username);
        }
      }
     
