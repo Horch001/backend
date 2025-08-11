@@ -202,24 +202,12 @@ router.post('/approve-payment', auth, async (req, res) => {
       return res.status(400).json(jsonErr('缺少支付信息'));
     }
     
-    // 调用Pi API批准支付
-    const { createPiPaymentRecord } = require('../services/pi');
-    const paymentRecord = await createPiPaymentRecord({
-      uid: req.user.piUserId,
-      amount: amount,
-      memo: memo || '账户充值',
-      metadata: metadata || {}
-    });
-    
-    if (!paymentRecord) {
-      console.error('❌ Pi API支付记录创建失败');
-      return res.status(500).json(jsonErr('支付批准失败'));
-    }
-    
-    console.log('✅ Pi API支付批准成功:', paymentRecord);
+    // 根据Pi官方文档，这里不需要调用Pi API
+    // 只需要记录支付状态，让Pi SDK继续处理
+    console.log('✅ 支付批准成功:', paymentId);
     res.json(jsonOk({ 
       approved: true, 
-      paymentId: paymentRecord.paymentId,
+      paymentId: paymentId,
       message: '支付已批准'
     }));
   } catch (error) {
