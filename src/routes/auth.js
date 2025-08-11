@@ -5,12 +5,30 @@ const User = require('../models/User');
 const { jsonOk, jsonErr } = require('../utils/response');
 const { signToken } = require('../services/tradeRules');
 
+// 处理 OPTIONS 请求（CORS 预检）
+router.options('/pi/login', (req, res) => {
+  res.header('Access-Control-Allow-Origin', '*');
+  res.header('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.status(200).end();
+});
+
 router.post(
   '/pi/login',
   body('piToken').isString().notEmpty(),
   async (req, res) => {
+    console.log('🔍 收到 Pi 登录请求:', {
+      method: req.method,
+      headers: req.headers,
+      body: req.body,
+      origin: req.get('Origin')
+    });
+    
     const errors = validationResult(req);
-    if (!errors.isEmpty()) return res.status(400).json(jsonErr('参数错误', 'VALIDATION_ERROR', errors.array()));
+    if (!errors.isEmpty()) {
+      console.log('❌ 参数验证失败:', errors.array());
+      return res.status(400).json(jsonErr('参数错误', 'VALIDATION_ERROR', errors.array()));
+    }
     
     const { piToken, authData } = req.body;
     
