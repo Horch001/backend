@@ -33,14 +33,33 @@ async function verifyPiAuthData(authData) {
       return null;
     }
     
+    // 详细记录用户数据
+    console.log('🔍 Pi 用户数据详情:', {
+      uid: user.uid,
+      username: user.username,
+      currentUser: user.currentUser,
+      user: user
+    });
+    
+    // 尝试获取用户名，优先使用 currentUser.username
+    let username = user.username;
+    if (!username && user.currentUser && user.currentUser.username) {
+      username = user.currentUser.username;
+    }
+    
+    // 如果还是没有用户名，尝试从其他字段获取
+    if (!username && user.currentUser && user.currentUser.uid) {
+      username = user.currentUser.uid;
+    }
+    
     console.log('✅ Pi 认证数据验证成功:', {
       uid: user.uid,
-      username: user.username
+      username: username
     });
 
     return {
       piUserId: user.uid,
-      username: user.username || `user_${user.uid}`
+      username: username || `user_${user.uid}`
     };
   } catch (error) {
     console.error('❌ Pi 认证数据验证失败:', error);
