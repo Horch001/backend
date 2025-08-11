@@ -23,9 +23,7 @@ async function verifyPiAuthData(authData) {
       return null;
     }
 
-    // 在生产环境中，这里应该调用 Pi 平台 API 验证认证数据
-    // 目前先使用简单的验证逻辑
-    const { user } = authData;
+    const { user, accessToken } = authData;
     
     // 验证用户数据完整性
     if (!user.uid || typeof user.uid !== 'string') {
@@ -36,10 +34,9 @@ async function verifyPiAuthData(authData) {
     // 详细记录用户数据
     console.log('🔍 Pi 用户数据详情:', {
       uid: user.uid,
-      username: user.username,
-      currentUser: user.currentUser,
-      user: user,
-      authData: authData
+      hasAccessToken: !!accessToken,
+      userKeys: Object.keys(user),
+      authDataKeys: Object.keys(authData)
     });
     
     // 尝试获取用户名，按照优先级顺序
@@ -65,10 +62,31 @@ async function verifyPiAuthData(authData) {
       username = authData.user.username;
       console.log('✅ 从 authData.user.username 获取到用户名:', username);
     }
-    // 5. 如果都没有，使用UID作为用户名（临时方案）
-    else {
+    // 5. 如果有accessToken，尝试调用Pi API获取用户名
+    else if (accessToken) {
+      console.log('🔍 尝试通过Pi API获取用户名...');
+      try {
+        const response = await axios.get(`https://api.minepi.com/v2/me`, {
+          headers: {
+            'Authorization': `Bearer ${accessToken}`
+          }
+        });
+        
+        if (response.data && response.data.username) {
+          username = response.data.username;
+          console.log('✅ 通过Pi API获取到用户名:', username);
+        } else {
+          console.warn('⚠️ Pi API返回的数据中没有用户名');
+        }
+      } catch (apiError) {
+        console.error('❌ 调用Pi API获取用户名失败:', apiError.message);
+      }
+    }
+    
+    // 6. 如果都没有，使用UID作为用户名（临时方案）
+    if (!username) {
       console.warn('⚠️ 无法找到用户名，使用UID作为用户名');
-      username = user.uid;
+      username = `user_${user.uid}`;
     }
     
     console.log('✅ Pi 认证数据验证成功:', {
